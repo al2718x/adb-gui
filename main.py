@@ -9,19 +9,21 @@ class ADBFileManager:
         self.root.title("ADB File Manager")
         self.root.geometry("800x600")
         self.current_path = "/"
+        self.error_var = tk.StringVar()
         self.create_widgets()
         self.list_files()
 
     def run_adb(self, args):
+        self.error_var.set("")
         try:
             result = subprocess.run(["adb"] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            # if result.returncode != 0:
-                # raise Exception(result.stderr)
+            if result.returncode != 0:
+                self.error_var.set(result.stderr.strip())
+                print(result.stderr.strip())
             return result.stdout
         except Exception as e:
-            # messagebox.showerror("ADB Error", str(e))
+            self.error_var.set(str(e))
             print(str(e))
-            return ""
 
     def list_files(self):
         self.file_list.delete(*self.file_list.get_children())
@@ -42,8 +44,8 @@ class ADBFileManager:
         selected = self.file_list.selection()
         if not selected:
             return
-        name = self.file_list.item(selected[0])["values"][0]
-        ftype = self.file_list.item(selected[0])["values"][1]
+        name = str(self.file_list.item(selected[0])["values"][0])
+        ftype = str(self.file_list.item(selected[0])["values"][1])
         if ftype == "dir":
             self.current_path = os.path.join(self.current_path, name)
             self.path_label.config(text=self.current_path)
@@ -73,6 +75,12 @@ class ADBFileManager:
             self.file_list.heading(col, text=col)
         self.file_list.pack(fill=tk.BOTH, expand=True)
         self.file_list.bind("<Double-1>", self.on_item_double_click)
+        # Error label at the bottom with fixed height
+        error_frame = ttk.Frame(self.root, height=28)
+        error_frame.pack_propagate(False)
+        error_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        error_label = ttk.Label(error_frame, textvariable=self.error_var, foreground="red", anchor="w")
+        error_label.pack(fill=tk.BOTH, padx=5, pady=2, expand=True)
 
 if __name__ == "__main__":
     root = tk.Tk()
