@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -10,6 +12,7 @@ class ADBFileManager:
         self.root.geometry("800x600")
         self.current_path = "/"
         self.error_var = tk.StringVar()
+        self.run_as_var = tk.StringVar()
         self.create_widgets()
         self.list_files()
 
@@ -27,7 +30,12 @@ class ADBFileManager:
 
     def list_files(self):
         self.file_list.delete(*self.file_list.get_children())
-        output = self.run_adb(["shell", "ls", "-lh", self.current_path])
+        # Use persistent run-as if present
+        run_as_val = self.run_as_var.get().strip()
+        if run_as_val and self.current_path.startswith("/data/data/"):
+            output = self.run_adb(["shell", "run-as", run_as_val, "ls", "-lh", self.current_path])
+        else:
+            output = self.run_adb(["shell", "ls", "-lh", self.current_path])
         if not output:
             return
         for line in output.strip().split("\n"):
@@ -47,6 +55,14 @@ class ADBFileManager:
         name = str(self.file_list.item(selected[0])["values"][0])
         ftype = str(self.file_list.item(selected[0])["values"][1])
         if ftype == "dir":
+            # If clicking on /data from root, use persistent run-as value
+            if self.current_path == "/" and name == "data":
+                run_as = self.run_as_var.get().strip()
+                if run_as:
+                    self.current_path = f"/data/data/{run_as}"
+                    self.path_label.config(text=self.current_path)
+                    self.list_files()
+                    return
             self.current_path = os.path.join(self.current_path, name)
             self.path_label.config(text=self.current_path)
             self.list_files()
@@ -69,6 +85,13 @@ class ADBFileManager:
         refresh_btn.pack(side=tk.LEFT)
         self.path_label = ttk.Label(toolbar, text=self.current_path)
         self.path_label.pack(side=tk.LEFT, padx=10)
+        # Run-as field under the top buttons
+        runas_frame = ttk.Frame(self.root)
+        runas_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
+        runas_label = ttk.Label(runas_frame, text="run-as package:")
+        runas_label.pack(side=tk.LEFT)
+        runas_entry = ttk.Entry(runas_frame, textvariable=self.run_as_var, width=25)
+        runas_entry.pack(side=tk.LEFT, padx=(5, 0))
         columns = ("Name", "Type", "Permissions")
         self.file_list = ttk.Treeview(frame, columns=columns, show="headings")
         for col in columns:
