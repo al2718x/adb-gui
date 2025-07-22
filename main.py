@@ -66,6 +66,13 @@ class ADBFileManager:
             self.current_path = os.path.join(self.current_path, name)
             self.path_label.config(text=self.current_path)
             self.list_files()
+        else:
+            # It's a file – prompt user to choose save location and download via adb pull
+            remote_path = os.path.join(self.current_path, name)
+            local_path = filedialog.asksaveasfilename(initialfile=name, title="Save As")
+            if not local_path:
+                return  # user cancelled
+            self.download_file(remote_path, local_path)
 
     def go_up(self):
         if self.current_path == "/":
@@ -73,6 +80,49 @@ class ADBFileManager:
         self.current_path = os.path.dirname(self.current_path)
         self.path_label.config(text=self.current_path)
         self.list_files()
+
+    def download_file(self, remote_path, local_path):
+        """Download a single file from the device to the given local path."""
+        self.error_var.set("")
+        try:
+            # Using adb pull is the most straightforward way. If run-as is required we'll try that first
+            run_as_val = self.run_as_var.get().strip()
+            pull_cmd = ["adb"]
+            # When using run-as, we need to execute cat via shell because adb pull does not work with run-as
+            if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
+                # Use exec-out to stream file contents
+                with open(local_path, "wb") as f:
+                    cat_result = subprocess.run(
+                        [
+                            "adb",
+                            "exec-out",
+                            "run-as",
+                            run_as_val,
+                            "cat",
+                            remote_path,
+                        ],
+                        stdout=f,
+                        stderr=subprocess.PIPE,
+                    )
+                    if cat_result.returncode != 0:
+                        self.error_var.set(cat_result.stderr.decode().strip())
+                        messagebox.showerror("Download Error", self.error_var.get())
+                        return
+            else:
+                pull_result = subprocess.run(
+                    pull_cmd + ["pull", remote_path, local_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                if pull_result.returncode != 0:
+                    self.error_var.set(pull_result.stderr.strip())
+                    messagebox.showerror("Download Error", self.error_var.get())
+                    return
+            # messagebox.showinfo("Download Complete", f"Saved to {local_path}")
+        except Exception as e:
+            self.error_var.set(str(e))
+            messagebox.showerror("Download Error", str(e))
 
     def create_widgets(self):
         frame = ttk.Frame(self.root)
