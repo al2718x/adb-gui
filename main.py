@@ -132,6 +132,42 @@ class ADBFileManager:
         remote_path = os.path.join(self.current_path, os.path.basename(local_path))
         self.upload_file(local_path, remote_path)
 
+    def delete_selected(self):
+        """Delete the selected file or directory on the device after confirmation."""
+        selected = self.file_list.selection()
+        if not selected:
+            messagebox.showinfo("Delete", "No item selected")
+            return
+        name, ftype, _ = self.file_list.item(selected[0])["values"]
+        remote_path = os.path.join(self.current_path, name)
+        if not messagebox.askyesno("Confirm Delete", f"Delete '{remote_path}' on device?"):
+            return
+        self.error_var.set("")
+        run_as_val = self.run_as_var.get().strip()
+        try:
+            if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
+                cmd = [
+                    "adb",
+                    "shell",
+                    "run-as",
+                    run_as_val,
+                    "rm",
+                    "-rf",
+                    remote_path,
+                ]
+            else:
+                cmd = ["adb", "shell", "rm", "-rf", remote_path]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode != 0:
+                self.error_var.set(res.stderr.strip())
+                messagebox.showerror("Delete Error", self.error_var.get())
+                return
+            # refresh view
+            self.list_files()
+        except Exception as e:
+            self.error_var.set(str(e))
+            messagebox.showerror("Delete Error", str(e))
+
     def upload_file(self, local_path, remote_path):
         """Upload a file from local_path to remote_path on device, handling run-as if needed."""
         self.error_var.set("")
@@ -186,6 +222,8 @@ class ADBFileManager:
         refresh_btn.pack(side=tk.LEFT)
         load_btn = ttk.Button(toolbar, text="Load", command=self.load_file)
         load_btn.pack(side=tk.LEFT)
+        delete_btn = ttk.Button(toolbar, text="Delete", command=self.delete_selected)
+        delete_btn.pack(side=tk.LEFT)
         self.path_label = ttk.Label(toolbar, text=self.current_path)
         self.path_label.pack(side=tk.LEFT, padx=10)
         # Run-as field under the top buttons
