@@ -124,6 +124,57 @@ class ADBFileManager:
             self.error_var.set(str(e))
             messagebox.showerror("Download Error", str(e))
 
+    def load_file(self):
+        """Prompt user to select a local file and upload it to the current path on the device."""
+        local_path = filedialog.askopenfilename(title="Select file to load")
+        if not local_path:
+            return
+        remote_path = os.path.join(self.current_path, os.path.basename(local_path))
+        self.upload_file(local_path, remote_path)
+
+    def upload_file(self, local_path, remote_path):
+        """Upload a file from local_path to remote_path on device, handling run-as if needed."""
+        self.error_var.set("")
+        try:
+            run_as_val = self.run_as_var.get().strip()
+            if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
+                # Use run-as with shell redirection to write the file
+                with open(local_path, "rb") as f:
+                    push_proc = subprocess.run(
+                        [
+                            "adb",
+                            "shell",
+                            "run-as",
+                            run_as_val,
+                            "sh",
+                            "-c",
+                            f'cat > "{remote_path}"',
+                        ],
+                        stdin=f,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    if push_proc.returncode != 0:
+                        self.error_var.set(push_proc.stderr.decode().strip())
+                        messagebox.showerror("Upload Error", self.error_var.get())
+                        return
+            else:
+                push_proc = subprocess.run(
+                    ["adb", "push", local_path, remote_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                if push_proc.returncode != 0:
+                    self.error_var.set(push_proc.stderr.strip())
+                    messagebox.showerror("Upload Error", self.error_var.get())
+                    return
+            # Optionally refresh view
+            self.list_files()
+        except Exception as e:
+            self.error_var.set(str(e))
+            messagebox.showerror("Upload Error", str(e))
+
     def create_widgets(self):
         frame = ttk.Frame(self.root)
         frame.pack(fill=tk.BOTH, expand=True)
@@ -133,6 +184,8 @@ class ADBFileManager:
         up_btn.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(toolbar, text="Refresh", command=self.list_files)
         refresh_btn.pack(side=tk.LEFT)
+        load_btn = ttk.Button(toolbar, text="Load", command=self.load_file)
+        load_btn.pack(side=tk.LEFT)
         self.path_label = ttk.Label(toolbar, text=self.current_path)
         self.path_label.pack(side=tk.LEFT, padx=10)
         # Run-as field under the top buttons
