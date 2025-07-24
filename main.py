@@ -299,24 +299,13 @@ class ADBFileManager:
     def create_widgets(self):
         frame = ttk.Frame(self.root)
         frame.pack(fill=tk.BOTH, expand=True)
-        # Device selector frame (top)
-        device_frame = ttk.Frame(frame)
-        device_frame.pack(fill=tk.X, padx=5, pady=(2, 0))
-        # ttk.Label(device_frame, text="Device:").pack(side=tk.LEFT)
-        self.device_var = tk.StringVar(value=self.device_id)
-        self.device_combo = ttk.Combobox(device_frame, textvariable=self.device_var, values=self.devices, state="readonly", width=30)
-        self.device_combo.pack(side=tk.LEFT)
-        refresh_dev_btn = ttk.Button(device_frame, text="⟳", width=3, command=self.refresh_devices, padding=(0, 0))
-        refresh_dev_btn.pack(side=tk.LEFT, padx=5)
-        self.device_combo.bind("<<ComboboxSelected>>", self.on_device_change)
 
-        ttk.Separator(frame, orient="horizontal").pack(fill=tk.X, pady=(0,2))
-        # Toolbar with file commands
+        # Toolbar
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill=tk.X)
-        up_btn = ttk.Button(toolbar, text="↑", width=3, command=self.go_up, padding=(0, 0))
+        up_btn = ttk.Button(toolbar, text="↑", width=2, command=self.go_up, padding=(0, 0))
         up_btn.pack(side=tk.LEFT)
-        refresh_btn = ttk.Button(toolbar, text="⟳", width=3, command=self.list_files, padding=(0, 0))
+        refresh_btn = ttk.Button(toolbar, text="Refresh", width=7, command=self.list_files, padding=(0, 0))
         refresh_btn.pack(side=tk.LEFT)
         download_btn = ttk.Button(toolbar, text="Download", width=9, command=self.download_selected, padding=(0, 0))
         download_btn.pack(side=tk.LEFT)
@@ -324,6 +313,13 @@ class ADBFileManager:
         upload_btn.pack(side=tk.LEFT)
         delete_btn = ttk.Button(toolbar, text="Delete", width=7, command=self.delete_selected, padding=(0, 0))
         delete_btn.pack(side=tk.LEFT)
+        ttk.Separator(toolbar, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=3, fill=tk.Y)
+        self.device_var = tk.StringVar(value=self.device_id)
+        self.device_combo = ttk.Combobox(toolbar, textvariable=self.device_var, values=self.devices, state="readonly", width=25)
+        self.device_combo.pack(side=tk.LEFT)
+        refresh_dev_btn = ttk.Button(toolbar, text="⟳", width=2, command=self.refresh_devices, padding=(0, 0))
+        refresh_dev_btn.pack(side=tk.LEFT)
+        self.device_combo.bind("<<ComboboxSelected>>", self.on_device_change)
 
         # define monospace font
         mono = tkfont.nametofont("TkFixedFont")
@@ -331,6 +327,7 @@ class ADBFileManager:
 
         # Treeview for files with vertical scrollbar
         columns = ("Name", "Type", "Permissions")
+        
         # Container frame for treeview and scrollbar
         tree_frame = ttk.Frame(frame)
         tree_frame.pack(fill=tk.BOTH, expand=True)
@@ -347,15 +344,15 @@ class ADBFileManager:
             yscrollcommand=v_scroll.set,
         )
         v_scroll.configure(command=self.file_list.yview)
-
         style = ttk.Style()
         style.configure("Mono.Treeview", font=mono)
         style.configure("Mono.Treeview.Heading", font=mono)
+
         # Configure column headers and alignment
         self.file_list.heading("Name", text="Name", anchor="w")
         self.file_list.heading("Type", text="Type")
         self.file_list.heading("Permissions", text="Permissions")
-        self.file_list.column("Name", stretch=True)  # Let Name column fill space
+        self.file_list.column("Name", stretch=True)
         self.file_list.column("Type", width=80, stretch=False, anchor="e")
         self.file_list.column("Permissions", width=130, stretch=False, anchor="e")
         self.file_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
