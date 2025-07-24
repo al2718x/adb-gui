@@ -85,6 +85,8 @@ class ADBFileManager:
 
     def list_files(self):
         self.file_list.delete(*self.file_list.get_children())
+        # Update the Name column header to show current path
+        self.file_list.heading("Name", text=self.current_path, anchor="w")
         # Use persistent run-as if present
         run_as_val = self.run_as_var.get().strip()
         if run_as_val and self.current_path.startswith("/data/data/"):
@@ -93,15 +95,28 @@ class ADBFileManager:
             output = self.run_adb(["shell", "ls", "-lh", self.current_path])
         if not output:
             return
+        # Collect entries and sort so that directories appear before files, each group alphabetically
+        entries = []
         for line in output.strip().split("\n"):
-            if line:
-                parts = line.split()
-                if len(parts) < 6:
-                    continue
-                perms = parts[0]
-                name = parts[-1]
-                ftype = "dir" if perms.startswith("d") else "file"
-                self.file_list.insert("", "end", values=(name, ftype, perms))
+            if not line:
+                continue
+            parts = line.split()
+            if len(parts) < 6:
+                continue
+            perms = parts[0]
+            name = parts[-1]
+            if perms.startswith("d"):
+                type_or_size = "dir"
+            else:
+                # parts[4] is size when using ls -lh (e.g., "1.2K", "512")
+                type_or_size = parts[4] if len(parts) > 4 else "file"
+            entries.append((name, type_or_size, perms))
+
+        # Sort: directories first, then files; within each group, sort alphabetically (case-insensitive)
+        entries.sort(key=lambda x: (x[1] != "dir", x[0].lower()))
+
+        for name, ftype, perms in entries:
+            self.file_list.insert("", "end", values=(name, ftype, perms))
 
     def on_item_double_click(self, event):
         selected = self.file_list.selection()
@@ -115,11 +130,9 @@ class ADBFileManager:
                 run_as = self.run_as_var.get().strip()
                 if run_as:
                     self.current_path = f"/data/data/{run_as}"
-                    self.path_label.config(text=self.current_path)
                     self.list_files()
                     return
             self.current_path = os.path.join(self.current_path, name)
-            self.path_label.config(text=self.current_path)
             self.list_files()
         else:
             # It's a file – prompt user to choose save location and download via adb pull
@@ -127,16 +140,58 @@ class ADBFileManager:
             local_path = filedialog.asksaveasfilename(initialfile=name, title="Save As")
             if not local_path:
                 return  # user cancelled
-            self.download_file(remote_path, local_path)
+            self.download_file_dialog(remote_path, local_path)
 
     def go_up(self):
         if self.current_path == "/":
             return
         self.current_path = os.path.dirname(self.current_path)
-        self.path_label.config(text=self.current_path)
         self.list_files()
 
-    def download_file(self, remote_path, local_path):
+    def upload_file(self):
+        """Prompt user to select a local file and upload it to the current path on the device."""
+        local_path = filedialog.askopenfilename(title="Select file to load")
+        if not local_path:
+            return
+        remote_path = os.path.join(self.current_path, os.path.basename(local_path))
+        self.upload_file_dialog(local_path, remote_path)
+
+    def delete_selected(self):
+        """Delete the selected file or directory on the device after confirmation."""
+        selected = self.file_list.selection()
+        if not selected:
+            messagebox.showinfo("Delete", "No item selected")
+            return
+        name, ftype, _ = self.file_list.item(selected[0])["values"]
+        remote_path = os.path.join(self.current_path, name)
+        if not messagebox.askyesno("Confirm Delete", f"Delete '{remote_path}' on device?"):
+            return
+        self.error_var.set("")
+        run_as_val = self.run_as_var.get().strip()
+        try:
+            if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
+                cmd = self.adb_base() + [
+                    "shell",
+                    "run-as",
+                    run_as_val,
+                    "rm",
+                    "-rf",
+                    remote_path,
+                ]
+            else:
+                cmd = self.adb_base() + ["shell", "rm", "-rf", remote_path]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode != 0:
+                self.error_var.set(res.stderr.strip())
+                messagebox.showerror("Delete Error", self.error_var.get())
+                return
+            # refresh view
+            self.list_files()
+        except Exception as e:
+            self.error_var.set(str(e))
+            messagebox.showerror("Delete Error", str(e))
+
+    def download_file_dialog(self, remote_path, local_path):
         """Download a single file from the device to the given local path."""
         self.error_var.set("")
         try:
@@ -178,50 +233,7 @@ class ADBFileManager:
             self.error_var.set(str(e))
             messagebox.showerror("Download Error", str(e))
 
-    def load_file(self):
-        """Prompt user to select a local file and upload it to the current path on the device."""
-        local_path = filedialog.askopenfilename(title="Select file to load")
-        if not local_path:
-            return
-        remote_path = os.path.join(self.current_path, os.path.basename(local_path))
-        self.upload_file(local_path, remote_path)
-
-    def delete_selected(self):
-        """Delete the selected file or directory on the device after confirmation."""
-        selected = self.file_list.selection()
-        if not selected:
-            messagebox.showinfo("Delete", "No item selected")
-            return
-        name, ftype, _ = self.file_list.item(selected[0])["values"]
-        remote_path = os.path.join(self.current_path, name)
-        if not messagebox.askyesno("Confirm Delete", f"Delete '{remote_path}' on device?"):
-            return
-        self.error_var.set("")
-        run_as_val = self.run_as_var.get().strip()
-        try:
-            if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
-                cmd = self.adb_base() + [
-                    "shell",
-                    "run-as",
-                    run_as_val,
-                    "rm",
-                    "-rf",
-                    remote_path,
-                ]
-            else:
-                cmd = self.adb_base() + ["shell", "rm", "-rf", remote_path]
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            if res.returncode != 0:
-                self.error_var.set(res.stderr.strip())
-                messagebox.showerror("Delete Error", self.error_var.get())
-                return
-            # refresh view
-            self.list_files()
-        except Exception as e:
-            self.error_var.set(str(e))
-            messagebox.showerror("Delete Error", str(e))
-
-    def upload_file(self, local_path, remote_path):
+    def upload_file_dialog(self, local_path, remote_path):
         """Upload a file from local_path to remote_path on device, handling run-as if needed."""
         self.error_var.set("")
         try:
@@ -281,33 +293,49 @@ class ADBFileManager:
         # Toolbar with file commands
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill=tk.X)
-        up_btn = ttk.Button(toolbar, text="Up", command=self.go_up, padding=(0, 0))
+        up_btn = ttk.Button(toolbar, text="↑", width=3, command=self.go_up, padding=(0, 0))
         up_btn.pack(side=tk.LEFT)
-        refresh_btn = ttk.Button(toolbar, text="Refresh", command=self.list_files, padding=(0, 0))
+        refresh_btn = ttk.Button(toolbar, text="⟳", width=3, command=self.list_files, padding=(0, 0))
         refresh_btn.pack(side=tk.LEFT)
-        load_btn = ttk.Button(toolbar, text="Load", command=self.load_file, padding=(0, 0))
-        load_btn.pack(side=tk.LEFT)
-        delete_btn = ttk.Button(toolbar, text="Delete", command=self.delete_selected, padding=(0, 0))
+        upload_btn = ttk.Button(toolbar, text="Upload", width=6, command=self.upload_file, padding=(0, 0))
+        upload_btn.pack(side=tk.LEFT)
+        delete_btn = ttk.Button(toolbar, text="Delete", width=6, command=self.delete_selected, padding=(0, 0))
         delete_btn.pack(side=tk.LEFT)
-        self.path_label = ttk.Label(toolbar, text=self.current_path)
-        self.path_label.pack(side=tk.LEFT, padx=10)
 
         # define monospace font
         mono = tkfont.nametofont("TkFixedFont")
         mono.configure(size=10)
 
-        # Treeview for files
+        # Treeview for files with vertical scrollbar
         columns = ("Name", "Type", "Permissions")
-        self.file_list = ttk.Treeview(frame, columns=columns, show="headings", style="Mono.Treeview")
+        # Container frame for treeview and scrollbar
+        tree_frame = ttk.Frame(frame)
+        tree_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Vertical scrollbar
+        v_scroll = ttk.Scrollbar(tree_frame, orient="vertical")
+        v_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.file_list = ttk.Treeview(
+            tree_frame,
+            columns=columns,
+            show="headings",
+            style="Mono.Treeview",
+            yscrollcommand=v_scroll.set,
+        )
+        v_scroll.configure(command=self.file_list.yview)
+
         style = ttk.Style()
         style.configure("Mono.Treeview", font=mono)
         style.configure("Mono.Treeview.Heading", font=mono)
-        for col in columns:
-            self.file_list.heading(col, text=col)
-        # fixed width for 'Type' column
-        self.file_list.column("Type", width=80, stretch=False)
-        self.file_list.column("Permissions", width=120, stretch=False)
-        self.file_list.pack(fill=tk.BOTH, expand=True)
+        # Configure column headers and alignment
+        self.file_list.heading("Name", text="Name", anchor="w")
+        self.file_list.heading("Type", text="Type")
+        self.file_list.heading("Permissions", text="Permissions")
+        self.file_list.column("Name", stretch=True)  # Let Name column fill space
+        self.file_list.column("Type", width=80, stretch=False, anchor="e")
+        self.file_list.column("Permissions", width=130, stretch=False, anchor="e")
+        self.file_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.file_list.bind("<Double-1>", self.on_item_double_click)
 
         # Run-as field (under file list)
