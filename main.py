@@ -13,13 +13,28 @@ class ADBFileManager:
         self.current_path = "/"
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
+        self.device_id = None  # selected ADB device serial number
+        self.devices = []  # list of connected device serials
+        self.detect_devices()
         self.create_widgets()
         self.list_files()
 
+    def adb_base(self):
+        """Return base adb command with selected device option."""
+        base = ["adb"]
+        if self.device_id:
+            base += ["-s", self.device_id]
+        return base
+
     def run_adb(self, args):
+        """Run an adb command with the currently selected device (if any)."""
         self.error_var.set("")
         try:
-            result = subprocess.run(["adb"] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            cmd = ["adb"]
+            if self.device_id:
+                cmd += ["-s", self.device_id]
+            cmd += args
+            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if result.returncode != 0:
                 self.error_var.set(result.stderr.strip())
                 print(result.stderr.strip())
@@ -27,6 +42,31 @@ class ADBFileManager:
         except Exception as e:
             self.error_var.set(str(e))
             print(str(e))
+
+    def detect_devices(self):
+        """Populate self.devices and default device selection."""
+        try:
+            res = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            if res.returncode != 0:
+                messagebox.showerror("ADB Error", res.stderr.strip())
+                self.root.destroy()
+                return
+            lines = [l.strip() for l in res.stdout.splitlines()[1:] if l.strip()]
+            self.devices = [l.split()[0] for l in lines if "device" in l]
+            if not self.devices:
+                messagebox.showerror("No Devices", "No connected Android devices detected.")
+                self.root.destroy()
+                return
+            self.device_id = self.devices[0]
+        except Exception as e:
+            messagebox.showerror("Error", str(e))
+            self.root.destroy()
+
+    def on_device_change(self, event=None):
+        sel = self.device_var.get()
+        if sel and sel != self.device_id:
+            self.device_id = sel
+            self.list_files()
 
     def list_files(self):
         self.file_list.delete(*self.file_list.get_children())
@@ -87,14 +127,13 @@ class ADBFileManager:
         try:
             # Using adb pull is the most straightforward way. If run-as is required we'll try that first
             run_as_val = self.run_as_var.get().strip()
-            pull_cmd = ["adb"]
+            pull_cmd = self.adb_base()
             # When using run-as, we need to execute cat via shell because adb pull does not work with run-as
             if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
                 # Use exec-out to stream file contents
                 with open(local_path, "wb") as f:
                     cat_result = subprocess.run(
-                        [
-                            "adb",
+                        self.adb_base() + [
                             "exec-out",
                             "run-as",
                             run_as_val,
@@ -146,8 +185,7 @@ class ADBFileManager:
         run_as_val = self.run_as_var.get().strip()
         try:
             if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
-                cmd = [
-                    "adb",
+                cmd = self.adb_base() + [
                     "shell",
                     "run-as",
                     run_as_val,
@@ -156,7 +194,7 @@ class ADBFileManager:
                     remote_path,
                 ]
             else:
-                cmd = ["adb", "shell", "rm", "-rf", remote_path]
+                cmd = self.adb_base() + ["shell", "rm", "-rf", remote_path]
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if res.returncode != 0:
                 self.error_var.set(res.stderr.strip())
@@ -177,8 +215,7 @@ class ADBFileManager:
                 # Use run-as with shell redirection to write the file
                 with open(local_path, "rb") as f:
                     push_proc = subprocess.run(
-                        [
-                            "adb",
+                        self.adb_base() + [
                             "shell",
                             "run-as",
                             run_as_val,
@@ -196,7 +233,7 @@ class ADBFileManager:
                         return
             else:
                 push_proc = subprocess.run(
-                    ["adb", "push", local_path, remote_path],
+                    self.adb_base() + ["push", local_path, remote_path],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,
@@ -226,20 +263,33 @@ class ADBFileManager:
         delete_btn.pack(side=tk.LEFT)
         self.path_label = ttk.Label(toolbar, text=self.current_path)
         self.path_label.pack(side=tk.LEFT, padx=10)
-        # Run-as field under the top buttons
-        runas_frame = ttk.Frame(self.root)
-        runas_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
-        runas_label = ttk.Label(runas_frame, text="run-as package:")
-        runas_label.pack(side=tk.LEFT)
-        runas_entry = ttk.Entry(runas_frame, textvariable=self.run_as_var, width=25)
-        runas_entry.pack(side=tk.LEFT, padx=(5, 0))
+
+        # Device selector frame (under toolbar)
+        device_frame = ttk.Frame(frame)
+        device_frame.pack(fill=tk.X, padx=5, pady=(2, 0))
+        ttk.Label(device_frame, text="Device:").pack(side=tk.LEFT)
+        self.device_var = tk.StringVar(value=self.device_id)
+        device_combo = ttk.Combobox(device_frame, textvariable=self.device_var, values=self.devices, state="readonly", width=30)
+        device_combo.pack(side=tk.LEFT, padx=(5, 0))
+        device_combo.bind("<<ComboboxSelected>>", self.on_device_change)
+
+        # Treeview for files
         columns = ("Name", "Type", "Permissions")
         self.file_list = ttk.Treeview(frame, columns=columns, show="headings")
         for col in columns:
             self.file_list.heading(col, text=col)
         self.file_list.pack(fill=tk.BOTH, expand=True)
         self.file_list.bind("<Double-1>", self.on_item_double_click)
-        # Error label at the bottom with fixed height
+
+        # Run-as field (under file list)
+        runas_frame = ttk.Frame(self.root)
+        runas_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
+        runas_label = ttk.Label(runas_frame, text="run-as package:")
+        runas_label.pack(side=tk.LEFT)
+        runas_entry = ttk.Entry(runas_frame, textvariable=self.run_as_var, width=25)
+        runas_entry.pack(side=tk.LEFT, padx=(5, 0))
+
+        # Error label at bottom
         error_frame = ttk.Frame(self.root, height=28)
         error_frame.pack_propagate(False)
         error_frame.pack(side=tk.BOTTOM, fill=tk.X)
