@@ -90,9 +90,9 @@ class ADBFileManager:
         # Use persistent run-as if present
         run_as_val = self.run_as_var.get().strip()
         if run_as_val and self.current_path.startswith("/data/data/"):
-            output = self.run_adb(["shell", "run-as", run_as_val, "ls", "-lh", self.current_path])
+            output = self.run_adb(["shell", "run-as", run_as_val, "ls", "-lah", self.current_path])
         else:
-            output = self.run_adb(["shell", "ls", "-lh", self.current_path])
+            output = self.run_adb(["shell", "ls", "-lah", self.current_path])
         if not output:
             return
         # Collect entries and sort so that directories appear before files, each group alphabetically
@@ -124,6 +124,15 @@ class ADBFileManager:
             return
         name = str(self.file_list.item(selected[0])["values"][0])
         ftype = str(self.file_list.item(selected[0])["values"][1])
+        
+        if name == ".":
+            self.go_root()
+            return
+            
+        if name == "..":
+            self.go_up()
+            return
+            
         if ftype == "dir":
             # If clicking on /data from root, use persistent run-as value
             if self.current_path == "/" and name == "data":
@@ -141,6 +150,10 @@ class ADBFileManager:
             if not local_path:
                 return  # user cancelled
             self.download_file_dialog(remote_path, local_path)
+
+    def go_root(self):
+        self.current_path = "/"
+        self.list_files()
 
     def go_up(self):
         if self.current_path == "/":
@@ -303,9 +316,11 @@ class ADBFileManager:
         # Toolbar
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill=tk.X)
+        root_btn = ttk.Button(toolbar, text="/", width=2, command=self.go_root, padding=(0, 0))
+        root_btn.pack(side=tk.LEFT)
         up_btn = ttk.Button(toolbar, text="↑", width=2, command=self.go_up, padding=(0, 0))
         up_btn.pack(side=tk.LEFT)
-        refresh_btn = ttk.Button(toolbar, text="Refresh", width=7, command=self.list_files, padding=(0, 0))
+        refresh_btn = ttk.Button(toolbar, text="⟳", width=2, command=self.list_files, padding=(0, 0))
         refresh_btn.pack(side=tk.LEFT)
         download_btn = ttk.Button(toolbar, text="Download", width=9, command=self.download_selected, padding=(0, 0))
         download_btn.pack(side=tk.LEFT)
@@ -327,7 +342,7 @@ class ADBFileManager:
 
         # Treeview for files with vertical scrollbar
         columns = ("Name", "Type", "Permissions")
-        
+
         # Container frame for treeview and scrollbar
         tree_frame = ttk.Frame(frame)
         tree_frame.pack(fill=tk.BOTH, expand=True)
