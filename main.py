@@ -3,13 +3,14 @@
 import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
+import tkinter.font as tkfont
 import os
 
 class ADBFileManager:
     def __init__(self, root):
         self.root = root
         self.root.title("ADB File Manager")
-        self.root.geometry("800x600")
+        self.root.geometry("900x600")
         self.current_path = "/"
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
@@ -280,22 +281,32 @@ class ADBFileManager:
         # Toolbar with file commands
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill=tk.X)
-        up_btn = ttk.Button(toolbar, text="Up", command=self.go_up)
+        up_btn = ttk.Button(toolbar, text="Up", command=self.go_up, padding=(0, 0))
         up_btn.pack(side=tk.LEFT)
-        refresh_btn = ttk.Button(toolbar, text="Refresh", command=self.list_files)
+        refresh_btn = ttk.Button(toolbar, text="Refresh", command=self.list_files, padding=(0, 0))
         refresh_btn.pack(side=tk.LEFT)
-        load_btn = ttk.Button(toolbar, text="Load", command=self.load_file)
+        load_btn = ttk.Button(toolbar, text="Load", command=self.load_file, padding=(0, 0))
         load_btn.pack(side=tk.LEFT)
-        delete_btn = ttk.Button(toolbar, text="Delete", command=self.delete_selected)
+        delete_btn = ttk.Button(toolbar, text="Delete", command=self.delete_selected, padding=(0, 0))
         delete_btn.pack(side=tk.LEFT)
         self.path_label = ttk.Label(toolbar, text=self.current_path)
         self.path_label.pack(side=tk.LEFT, padx=10)
 
+        # define monospace font
+        mono = tkfont.nametofont("TkFixedFont")
+        mono.configure(size=10)
+
         # Treeview for files
         columns = ("Name", "Type", "Permissions")
-        self.file_list = ttk.Treeview(frame, columns=columns, show="headings")
+        self.file_list = ttk.Treeview(frame, columns=columns, show="headings", style="Mono.Treeview")
+        style = ttk.Style()
+        style.configure("Mono.Treeview", font=mono)
+        style.configure("Mono.Treeview.Heading", font=mono)
         for col in columns:
             self.file_list.heading(col, text=col)
+        # fixed width for 'Type' column
+        self.file_list.column("Type", width=80, stretch=False)
+        self.file_list.column("Permissions", width=120, stretch=False)
         self.file_list.pack(fill=tk.BOTH, expand=True)
         self.file_list.bind("<Double-1>", self.on_item_double_click)
 
