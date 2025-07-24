@@ -62,6 +62,20 @@ class ADBFileManager:
             messagebox.showerror("Error", str(e))
             self.root.destroy()
 
+    def refresh_devices(self):
+        """Refresh list of connected devices and update combobox."""
+        prev = self.device_id
+        self.detect_devices()
+        # update combobox values and selection
+        if hasattr(self, "device_combo"):
+            self.device_combo["values"] = self.devices
+            if prev in self.devices:
+                self.device_var.set(prev)
+                self.device_id = prev
+            else:
+                self.device_var.set(self.device_id)
+        self.list_files()
+
     def on_device_change(self, event=None):
         sel = self.device_var.get()
         if sel and sel != self.device_id:
@@ -251,6 +265,19 @@ class ADBFileManager:
     def create_widgets(self):
         frame = ttk.Frame(self.root)
         frame.pack(fill=tk.BOTH, expand=True)
+        # Device selector frame (top)
+        device_frame = ttk.Frame(frame)
+        device_frame.pack(fill=tk.X, padx=5, pady=(2, 0))
+        # ttk.Label(device_frame, text="Device:").pack(side=tk.LEFT)
+        self.device_var = tk.StringVar(value=self.device_id)
+        self.device_combo = ttk.Combobox(device_frame, textvariable=self.device_var, values=self.devices, state="readonly", width=30)
+        self.device_combo.pack(side=tk.LEFT)
+        refresh_dev_btn = ttk.Button(device_frame, text="⟳", width=3, command=self.refresh_devices, padding=(0, 0))
+        refresh_dev_btn.pack(side=tk.LEFT, padx=5)
+        self.device_combo.bind("<<ComboboxSelected>>", self.on_device_change)
+
+        ttk.Separator(frame, orient="horizontal").pack(fill=tk.X, pady=(0,2))
+        # Toolbar with file commands
         toolbar = ttk.Frame(frame)
         toolbar.pack(fill=tk.X)
         up_btn = ttk.Button(toolbar, text="Up", command=self.go_up)
@@ -263,15 +290,6 @@ class ADBFileManager:
         delete_btn.pack(side=tk.LEFT)
         self.path_label = ttk.Label(toolbar, text=self.current_path)
         self.path_label.pack(side=tk.LEFT, padx=10)
-
-        # Device selector frame (under toolbar)
-        device_frame = ttk.Frame(frame)
-        device_frame.pack(fill=tk.X, padx=5, pady=(2, 0))
-        ttk.Label(device_frame, text="Device:").pack(side=tk.LEFT)
-        self.device_var = tk.StringVar(value=self.device_id)
-        device_combo = ttk.Combobox(device_frame, textvariable=self.device_var, values=self.devices, state="readonly", width=30)
-        device_combo.pack(side=tk.LEFT, padx=(5, 0))
-        device_combo.bind("<<ComboboxSelected>>", self.on_device_change)
 
         # Treeview for files
         columns = ("Name", "Type", "Permissions")
