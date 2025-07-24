@@ -148,6 +148,27 @@ class ADBFileManager:
         self.current_path = os.path.dirname(self.current_path)
         self.list_files()
 
+    def download_selected(self):
+        """Download the currently selected file."""
+        selected = self.file_list.selection()
+        if not selected:
+            messagebox.showinfo("Download", "No file selected")
+            return
+        
+        name, ftype, _ = self.file_list.item(selected[0])["values"]
+        if ftype == "dir":
+            messagebox.showinfo("Download", "Cannot download a directory")
+            return
+            
+        remote_path = os.path.join(self.current_path, name)
+        local_path = filedialog.asksaveasfilename(
+            initialfile=name,
+            title="Save As",
+            defaultextension=os.path.splitext(name)[1] or ""
+        )
+        if local_path:
+            self.download_file_dialog(remote_path, local_path)
+
     def upload_file(self):
         """Prompt user to select a local file and upload it to the current path on the device."""
         local_path = filedialog.askopenfilename(title="Select file to load")
@@ -297,9 +318,11 @@ class ADBFileManager:
         up_btn.pack(side=tk.LEFT)
         refresh_btn = ttk.Button(toolbar, text="⟳", width=3, command=self.list_files, padding=(0, 0))
         refresh_btn.pack(side=tk.LEFT)
-        upload_btn = ttk.Button(toolbar, text="Upload", width=6, command=self.upload_file, padding=(0, 0))
+        download_btn = ttk.Button(toolbar, text="Download", width=9, command=self.download_selected, padding=(0, 0))
+        download_btn.pack(side=tk.LEFT)
+        upload_btn = ttk.Button(toolbar, text="Upload", width=7, command=self.upload_file, padding=(0, 0))
         upload_btn.pack(side=tk.LEFT)
-        delete_btn = ttk.Button(toolbar, text="Delete", width=6, command=self.delete_selected, padding=(0, 0))
+        delete_btn = ttk.Button(toolbar, text="Delete", width=7, command=self.delete_selected, padding=(0, 0))
         delete_btn.pack(side=tk.LEFT)
 
         # define monospace font
