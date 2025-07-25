@@ -97,10 +97,10 @@ class ADBFileManager:
             return
         # Collect entries and sort so that directories appear before files, each group alphabetically
         entries = []
-        for line in output.strip().split("\n"):
+        for line in output.strip().splitlines():
             if not line:
                 continue
-            parts = line.split()
+            parts = line.split(None, 7)
             if len(parts) < 6:
                 continue
             perms = parts[0]
@@ -210,10 +210,10 @@ class ADBFileManager:
                     run_as_val,
                     "rm",
                     "-rf",
-                    remote_path,
+                    f"'{remote_path}'",
                 ]
             else:
-                cmd = self.adb_base() + ["shell", "rm", "-rf", remote_path]
+                cmd = self.adb_base() + ["shell", "rm", "-rf", f"'{remote_path}'"]
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if res.returncode != 0:
                 self.error_var.set(res.stderr.strip())
