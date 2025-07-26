@@ -81,6 +81,7 @@ class ADBFileManager:
         sel = self.device_var.get()
         if sel and sel != self.device_id:
             self.device_id = sel
+            self.current_path = "/"
             self.list_files()
 
     def list_files(self):
