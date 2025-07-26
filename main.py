@@ -341,7 +341,7 @@ class ADBFileManager:
         mono.configure(size=10)
 
         # Treeview for files with vertical scrollbar
-        columns = ("Name", "Type", "Permissions")
+        columns = ("Name", "Size", "Permissions")
 
         # Container frame for treeview and scrollbar
         tree_frame = ttk.Frame(frame)
@@ -365,10 +365,10 @@ class ADBFileManager:
 
         # Configure column headers and alignment
         self.file_list.heading("Name", text="Name", anchor="w")
-        self.file_list.heading("Type", text="Type")
+        self.file_list.heading("Size", text="Size")
         self.file_list.heading("Permissions", text="Permissions")
         self.file_list.column("Name", stretch=True)
-        self.file_list.column("Type", width=80, stretch=False, anchor="e")
+        self.file_list.column("Size", width=80, stretch=False, anchor="e")
         self.file_list.column("Permissions", width=130, stretch=False, anchor="e")
         self.file_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.file_list.bind("<Double-1>", self.on_item_double_click)
