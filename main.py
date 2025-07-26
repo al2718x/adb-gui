@@ -10,7 +10,7 @@ class ADBFileManager:
     def __init__(self, root):
         self.root = root
         self.root.title("ADB File Manager")
-        self.root.geometry("900x600")
+        self.root.geometry("1200x800")
         self.current_path = "/"
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
@@ -104,19 +104,22 @@ class ADBFileManager:
             if len(parts) < 6:
                 continue
             perms = parts[0]
+            owner = parts[2] if len(parts) > 2 else ""
+            group = parts[3] if len(parts) > 3 else ""
+            date = " ".join(parts[5:7]) if len(parts) > 6 else ""
             name = parts[-1]
             if perms.startswith("d"):
                 type_or_size = "dir"
             else:
                 # parts[4] is size when using ls -lh (e.g., "1.2K", "512")
                 type_or_size = parts[4] if len(parts) > 4 else "file"
-            entries.append((name, type_or_size, perms))
+            entries.append((name, type_or_size, owner, group, date, perms))
 
         # Sort: directories first, then files; within each group, sort alphabetically (case-insensitive)
         entries.sort(key=lambda x: (x[1] != "dir", x[0].lower()))
 
-        for name, ftype, perms in entries:
-            self.file_list.insert("", "end", values=(name, ftype, perms))
+        for entry in entries:
+            self.file_list.insert("", "end", values=entry)
 
     def on_item_double_click(self, event):
         selected = self.file_list.selection()
@@ -168,7 +171,8 @@ class ADBFileManager:
             messagebox.showinfo("Download", "No file selected")
             return
         
-        name, ftype, _ = self.file_list.item(selected[0])["values"]
+        name = str(self.file_list.item(selected[0])["values"][0])
+        ftype = str(self.file_list.item(selected[0])["values"][1])
         if ftype == "dir":
             messagebox.showinfo("Download", "Cannot download a directory")
             return
@@ -196,7 +200,7 @@ class ADBFileManager:
         if not selected:
             messagebox.showinfo("Delete", "No item selected")
             return
-        name, ftype, _ = self.file_list.item(selected[0])["values"]
+        name = str(self.file_list.item(selected[0])["values"][0])
         remote_path = os.path.join(self.current_path, name)
         if not messagebox.askyesno("Confirm Delete", f"Delete '{remote_path}' on device?"):
             return
@@ -341,7 +345,7 @@ class ADBFileManager:
         mono.configure(size=10)
 
         # Treeview for files with vertical scrollbar
-        columns = ("Name", "Size", "Permissions")
+        columns = ("Name", "Size", "Owner", "Group", "Date", "Permissions")
 
         # Container frame for treeview and scrollbar
         tree_frame = ttk.Frame(frame)
@@ -366,10 +370,16 @@ class ADBFileManager:
         # Configure column headers and alignment
         self.file_list.heading("Name", text="Name", anchor="w")
         self.file_list.heading("Size", text="Size")
+        self.file_list.heading("Owner", text="Owner")
+        self.file_list.heading("Group", text="Group")
+        self.file_list.heading("Date", text="Modified")
         self.file_list.heading("Permissions", text="Permissions")
         self.file_list.column("Name", stretch=True)
-        self.file_list.column("Size", width=80, stretch=False, anchor="e")
-        self.file_list.column("Permissions", width=130, stretch=False, anchor="e")
+        self.file_list.column("Size", width=70, stretch=False, anchor="e")
+        self.file_list.column("Owner", width=80, stretch=False, anchor="w")
+        self.file_list.column("Group", width=80, stretch=False, anchor="w")
+        self.file_list.column("Date", width=175, stretch=False, anchor="e")
+        self.file_list.column("Permissions", width=125, stretch=False, anchor="e")
         self.file_list.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.file_list.bind("<Double-1>", self.on_item_double_click)
 
