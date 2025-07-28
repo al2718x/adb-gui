@@ -279,25 +279,36 @@ class ADBFileManager:
         try:
             run_as_val = self.run_as_var.get().strip()
             if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
-                # Use run-as with shell redirection to write the file
-                with open(local_path, "rb") as f:
-                    push_proc = subprocess.run(
-                        self.adb_base() + [
-                            "shell",
-                            "run-as",
-                            run_as_val,
-                            "sh",
-                            "-c",
-                            f'cat > "{remote_path}"',
-                        ],
-                        stdin=f,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                    )
-                    if push_proc.returncode != 0:
-                        self.error_var.set(push_proc.stderr.decode().strip())
-                        messagebox.showerror("Upload Error", self.error_var.get())
-                        return
+                # First push to /sdcard for easier permissions
+                temp_path = f"/sdcard/{os.path.basename(remote_path)}"
+                push_result = subprocess.run(
+                    self.adb_base() + ["push", local_path, temp_path],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                if push_result.returncode != 0:
+                    self.error_var.set(push_result.stderr.strip())
+                    messagebox.showerror("Upload Error", self.error_var.get())
+                    return
+                # Then copy to /data using run-as
+                cp_result = subprocess.run(
+                    self.adb_base() + [
+                        "shell",
+                        "run-as",
+                        run_as_val,
+                        "cp",
+                        temp_path,
+                        remote_path,
+                    ],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                )
+                if cp_result.returncode != 0:
+                    self.error_var.set(cp_result.stderr.strip())
+                    messagebox.showerror("Upload Error", self.error_var.get())
+                    return
             else:
                 push_proc = subprocess.run(
                     self.adb_base() + ["push", local_path, remote_path],
