@@ -289,7 +289,7 @@ class ADBFileManager:
                 )
                 if push_result.returncode != 0:
                     self.error_var.set(push_result.stderr.strip())
-                    messagebox.showerror("Upload Error", self.error_var.get())
+                    messagebox.showerror("Upload to /sdcard Error", self.error_var.get())
                     return
                 # Then copy to /data using run-as
                 cp_result = subprocess.run(
@@ -298,8 +298,8 @@ class ADBFileManager:
                         "run-as",
                         run_as_val,
                         "cp",
-                        temp_path,
-                        remote_path,
+                        f"'{temp_path}'",
+                        f"'{remote_path}'",
                     ],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -307,7 +307,7 @@ class ADBFileManager:
                 )
                 if cp_result.returncode != 0:
                     self.error_var.set(cp_result.stderr.strip())
-                    messagebox.showerror("Upload Error", self.error_var.get())
+                    messagebox.showerror("Copy to /data Error", self.error_var.get())
                     return
             else:
                 push_proc = subprocess.run(
