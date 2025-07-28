@@ -96,6 +96,7 @@ class ADBFileManager:
             output = self.run_adb(["shell", "ls", "-lah", self.current_path])
         if not output:
             return
+        output = output.replace("                ?", " ????-??-?? ??:??")        
         # Collect entries and sort so that directories appear before files, each group alphabetically
         entries = []
         for line in output.strip().splitlines():
