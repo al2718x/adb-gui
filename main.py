@@ -404,7 +404,7 @@ class ADBFileManager:
         # Run-as field (under file list)
         runas_frame = ttk.Frame(self.root)
         runas_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
-        runas_label = ttk.Label(runas_frame, text="run-as package:")
+        runas_label = ttk.Label(runas_frame, text="run-as /data/data/")
         runas_label.pack(side=tk.LEFT)
         runas_entry = ttk.Entry(runas_frame, textvariable=self.run_as_var, width=25)
         runas_entry.pack(side=tk.LEFT, padx=(5, 0))
