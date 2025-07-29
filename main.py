@@ -150,6 +150,11 @@ class ADBFileManager:
             self.list_files()
         else:
             # It's a file – prompt user to choose save location and download via adb pull
+            if " -> " in name:
+                name = name.split(" -> ")[1]
+                self.current_path = os.path.join(self.current_path, name)
+                self.list_files()
+                return
             remote_path = os.path.join(self.current_path, name)
             local_path = filedialog.asksaveasfilename(initialfile=name, title="Save As")
             if not local_path:
