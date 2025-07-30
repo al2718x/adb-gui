@@ -364,6 +364,7 @@ class ADBFileManager:
         path_frame = ttk.Frame(frame)
         path_frame.pack(side=tk.TOP, fill=tk.X)
         path_entry = ttk.Entry(path_frame, textvariable=self.path_var)
+        path_entry.bind("<Return>", lambda e: (setattr(self, "current_path", self.path_var.get()), self.list_files()))
         path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # define monospace font
