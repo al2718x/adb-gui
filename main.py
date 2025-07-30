@@ -412,18 +412,19 @@ class ADBFileManager:
 
         # Run-as field (under file list)
         runas_frame = ttk.Frame(self.root)
-        runas_frame.pack(side=tk.TOP, fill=tk.X, padx=5, pady=2)
+        runas_frame.pack(side=tk.TOP, fill=tk.X)
         runas_label = ttk.Label(runas_frame, text="run-as /data/data/")
-        runas_label.pack(side=tk.LEFT)
+        runas_label.pack(side=tk.LEFT, padx=(5, 0))
         runas_entry = ttk.Entry(runas_frame, textvariable=self.run_as_var, width=25)
         runas_entry.pack(side=tk.LEFT, padx=(5, 0))
 
         # Error label at bottom
-        error_frame = ttk.Frame(self.root, height=28)
+        ttk.Separator(self.root, orient="horizontal").pack(fill=tk.X)
+        error_frame = ttk.Frame(self.root, height=24)
         error_frame.pack_propagate(False)
         error_frame.pack(side=tk.BOTTOM, fill=tk.X)
         error_label = ttk.Label(error_frame, textvariable=self.error_var, foreground="red", anchor="w")
-        error_label.pack(fill=tk.BOTH, padx=5, pady=2, expand=True)
+        error_label.pack(fill=tk.BOTH, padx=5, expand=True)
 
 if __name__ == "__main__":
     root = tk.Tk()
