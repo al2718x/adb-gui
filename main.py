@@ -12,6 +12,7 @@ class ADBFileManager:
         self.root.title("ADB File Manager")
         self.root.geometry("1200x800")
         self.current_path = "/"
+        self.path_var = tk.StringVar(value=self.current_path)
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
         self.device_id = None  # selected ADB device serial number
@@ -87,7 +88,8 @@ class ADBFileManager:
     def list_files(self):
         self.file_list.delete(*self.file_list.get_children())
         # Update the Name column header to show current path
-        self.file_list.heading("Name", text=self.current_path, anchor="w")
+        # self.file_list.heading("Name", text=self.current_path, anchor="w")
+        self.path_var.set(self.current_path)
         # Use persistent run-as if present
         run_as_val = self.run_as_var.get().strip()
         if run_as_val and self.current_path.startswith("/data/data/"):
@@ -357,6 +359,12 @@ class ADBFileManager:
         refresh_dev_btn = ttk.Button(toolbar, text="⟳", width=2, command=self.refresh_devices, padding=(0, 0))
         refresh_dev_btn.pack(side=tk.LEFT)
         self.device_combo.bind("<<ComboboxSelected>>", self.on_device_change)
+
+        # Path field
+        path_frame = ttk.Frame(frame)
+        path_frame.pack(side=tk.TOP, fill=tk.X)
+        path_entry = ttk.Entry(path_frame, textvariable=self.path_var)
+        path_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         # define monospace font
         mono = tkfont.nametofont("TkFixedFont")
