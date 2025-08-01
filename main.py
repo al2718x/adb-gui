@@ -15,6 +15,7 @@ class ADBFileManager:
         self.path_var = tk.StringVar(value=self.current_path)
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
+        self.info_var = tk.StringVar()
         self.device_id = None  # selected ADB device serial number
         self.devices = []  # list of connected device serials
         self.detect_devices()
@@ -106,6 +107,7 @@ class ADBFileManager:
                 continue
             parts = line.split(None, 7)
             if len(parts) < 6:
+                self.info_var.set(line)
                 continue
             perms = parts[0]
             owner = parts[2] if len(parts) > 2 else ""
@@ -417,6 +419,9 @@ class ADBFileManager:
         runas_label.pack(side=tk.LEFT, padx=(5, 0))
         runas_entry = ttk.Entry(runas_frame, textvariable=self.run_as_var, width=25)
         runas_entry.pack(side=tk.LEFT, padx=(5, 0))
+
+        info_label = ttk.Label(runas_frame, textvariable=self.info_var)
+        info_label.pack(side=tk.RIGHT, padx=5)
 
         # Error label at bottom
         ttk.Separator(self.root, orient="horizontal").pack(fill=tk.X)
