@@ -15,7 +15,8 @@ class ADBFileManager:
         self.path_var = tk.StringVar(value=self.current_path)
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
-        self.info_var = tk.StringVar()
+        self.total_var = tk.StringVar()
+        self.amount_var = tk.StringVar()
         self.device_id = None  # selected ADB device serial number
         self.devices = []  # list of connected device serials
         self.detect_devices()
@@ -87,6 +88,8 @@ class ADBFileManager:
             self.list_files()
 
     def list_files(self):
+        self.total_var.set("")
+        self.amount_var.set("")
         self.file_list.delete(*self.file_list.get_children())
         # Update the Name column header to show current path
         # self.file_list.heading("Name", text=self.current_path, anchor="w")
@@ -102,12 +105,13 @@ class ADBFileManager:
         output = output.replace("                ?", " ????-??-?? ??:??")        
         # Collect entries and sort so that directories appear before files, each group alphabetically
         entries = []
+        amount = 0
         for line in output.strip().splitlines():
             if not line:
                 continue
             parts = line.split(None, 7)
             if len(parts) < 6:
-                self.info_var.set(line)
+                self.total_var.set(line)
                 continue
             perms = parts[0]
             owner = parts[2] if len(parts) > 2 else ""
@@ -120,12 +124,15 @@ class ADBFileManager:
                 # parts[4] is size when using ls -lh (e.g., "1.2K", "512")
                 type_or_size = parts[4] if len(parts) > 4 else "file"
             entries.append((name, type_or_size, owner, group, date, perms))
+            if name not in (".", ".."):
+                amount += 1
 
         # Sort: directories first, then files; within each group, sort alphabetically (case-insensitive)
         entries.sort(key=lambda x: (x[1] != "dir", x[0].lower()))
 
         for entry in entries:
             self.file_list.insert("", "end", values=entry)
+        self.amount_var.set(f"[{amount}]")
 
     def on_item_double_click(self, event):
         selected = self.file_list.selection()
@@ -420,8 +427,10 @@ class ADBFileManager:
         runas_entry = ttk.Entry(runas_frame, textvariable=self.run_as_var, width=25)
         runas_entry.pack(side=tk.LEFT, padx=(5, 0))
 
-        info_label = ttk.Label(runas_frame, textvariable=self.info_var)
-        info_label.pack(side=tk.RIGHT, padx=5)
+        amount_label = ttk.Label(runas_frame, textvariable=self.amount_var)
+        amount_label.pack(side=tk.RIGHT, padx=(0, 5))
+        total_label = ttk.Label(runas_frame, textvariable=self.total_var)
+        total_label.pack(side=tk.RIGHT, padx=5)
 
         # Error label at bottom
         ttk.Separator(self.root, orient="horizontal").pack(fill=tk.X)
