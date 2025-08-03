@@ -12,6 +12,7 @@ class ADBFileManager:
         self.root.title("ADB File Manager")
         self.root.geometry("1200x800")
         self.current_path = "/"
+        self.sort_col = "1"
         self.path_var = tk.StringVar(value=self.current_path)
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
@@ -127,8 +128,31 @@ class ADBFileManager:
             if name not in (".", ".."):
                 amount += 1
 
-        # Sort: directories first, then files; within each group, sort alphabetically (case-insensitive)
-        entries.sort(key=lambda x: (x[1] != "dir", x[0].lower()))
+        if self.sort_col == "1":
+            # Sort: directories first, then files; within each group, sort alphabetically (case-insensitive)
+            entries.sort(key=lambda x: (x[1] != "dir", x[0].lower()))
+            self.set_headers_text()
+            self.file_list.heading("Name", text="Name↓", anchor="w")
+        elif self.sort_col == "2":
+            entries.sort(key=lambda x: x[1].lower())
+            self.set_headers_text()
+            self.file_list.heading("Size", text="Size↓")
+        elif self.sort_col == "3":
+            entries.sort(key=lambda x: x[2].lower())
+            self.set_headers_text()
+            self.file_list.heading("Owner", text="Owner↓")
+        elif self.sort_col == "4":
+            entries.sort(key=lambda x: x[3].lower())
+            self.set_headers_text()
+            self.file_list.heading("Group", text="Group↓")
+        elif self.sort_col == "5":
+            entries.sort(key=lambda x: x[4].lower())
+            self.set_headers_text()
+            self.file_list.heading("Date", text="Modified↓")
+        elif self.sort_col == "6":
+            entries.sort(key=lambda x: x[5].lower())
+            self.set_headers_text()
+            self.file_list.heading("Permissions", text="Permissions↓")
 
         for entry in entries:
             self.file_list.insert("", "end", values=entry)
@@ -342,6 +366,25 @@ class ADBFileManager:
             self.error_var.set(str(e))
             messagebox.showerror("Upload Error", str(e))
 
+    def on_treeview_header_click(self, event):
+        """Sort treeview items by the clicked header."""
+        region = self.file_list.identify_region(event.x, event.y)   
+        if region != 'heading':
+            return
+        col = self.file_list.identify_column(event.x)
+        if not col:
+            return
+        self.sort_col = col[1:]  # strip leading '#'
+        self.list_files()
+
+    def set_headers_text(self):
+        self.file_list.heading("Name", text="Name", anchor="w")
+        self.file_list.heading("Size", text="Size")
+        self.file_list.heading("Owner", text="Owner")
+        self.file_list.heading("Group", text="Group")
+        self.file_list.heading("Date", text="Modified")
+        self.file_list.heading("Permissions", text="Permissions")
+
     def create_widgets(self):
         frame = ttk.Frame(self.root)
         frame.pack(fill=tk.BOTH, expand=True)
@@ -398,18 +441,14 @@ class ADBFileManager:
             style="Mono.Treeview",
             yscrollcommand=v_scroll.set,
         )
+        self.file_list.bind("<Button-1>", self.on_treeview_header_click)
         v_scroll.configure(command=self.file_list.yview)
         style = ttk.Style()
         style.configure("Mono.Treeview", font=mono)
         style.configure("Mono.Treeview.Heading", font=mono)
 
         # Configure column headers and alignment
-        self.file_list.heading("Name", text="Name", anchor="w")
-        self.file_list.heading("Size", text="Size")
-        self.file_list.heading("Owner", text="Owner")
-        self.file_list.heading("Group", text="Group")
-        self.file_list.heading("Date", text="Modified")
-        self.file_list.heading("Permissions", text="Permissions")
+        self.set_headers_text()
         self.file_list.column("Name", stretch=True)
         self.file_list.column("Size", width=70, stretch=False, anchor="e")
         self.file_list.column("Owner", width=80, stretch=False, anchor="w")
