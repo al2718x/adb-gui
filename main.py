@@ -13,6 +13,7 @@ class ADBFileManager:
         self.root.geometry("1200x800")
         self.current_path = "/"
         self.sort_col = "1"
+        self.sort_asc = True
         self.path_var = tk.StringVar(value=self.current_path)
         self.error_var = tk.StringVar()
         self.run_as_var = tk.StringVar()
@@ -130,29 +131,29 @@ class ADBFileManager:
 
         if self.sort_col == "1":
             # Sort: directories first, then files; within each group, sort alphabetically (case-insensitive)
-            entries.sort(key=lambda x: (x[1] != "dir", x[0].lower()))
+            entries.sort(key=lambda x: (x[1] != "dir", x[0].lower()), reverse=not self.sort_asc)
             self.set_headers_text()
-            self.file_list.heading("Name", text="Name↓", anchor="w")
+            self.file_list.heading("Name", text="Name" + ("↓" if self.sort_asc else "↑"), anchor="w")
         elif self.sort_col == "2":
-            entries.sort(key=lambda x: x[1].lower())
+            entries.sort(key=lambda x: x[1].lower(), reverse=not self.sort_asc)
             self.set_headers_text()
-            self.file_list.heading("Size", text="Size↓")
+            self.file_list.heading("Size", text="Size" + ("↓" if self.sort_asc else "↑"))
         elif self.sort_col == "3":
-            entries.sort(key=lambda x: x[2].lower())
+            entries.sort(key=lambda x: x[2].lower(), reverse=not self.sort_asc)
             self.set_headers_text()
-            self.file_list.heading("Owner", text="Owner↓")
+            self.file_list.heading("Owner", text="Owner" + ("↓" if self.sort_asc else "↑"))
         elif self.sort_col == "4":
-            entries.sort(key=lambda x: x[3].lower())
+            entries.sort(key=lambda x: x[3].lower(), reverse=not self.sort_asc)
             self.set_headers_text()
-            self.file_list.heading("Group", text="Group↓")
+            self.file_list.heading("Group", text="Group" + ("↓" if self.sort_asc else "↑"))
         elif self.sort_col == "5":
-            entries.sort(key=lambda x: x[4].lower())
+            entries.sort(key=lambda x: x[4].lower(), reverse=not self.sort_asc)
             self.set_headers_text()
-            self.file_list.heading("Date", text="Modified↓")
+            self.file_list.heading("Date", text="Modified" + ("↓" if self.sort_asc else "↑"))
         elif self.sort_col == "6":
-            entries.sort(key=lambda x: x[5].lower())
+            entries.sort(key=lambda x: x[5].lower(), reverse=not self.sort_asc)
             self.set_headers_text()
-            self.file_list.heading("Permissions", text="Permissions↓")
+            self.file_list.heading("Permissions", text="Permissions" + ("↓" if self.sort_asc else "↑"))
 
         for entry in entries:
             self.file_list.insert("", "end", values=entry)
@@ -374,6 +375,10 @@ class ADBFileManager:
         col = self.file_list.identify_column(event.x)
         if not col:
             return
+        if self.sort_col == col[1:]:
+            self.sort_asc = not self.sort_asc
+        else:
+            self.sort_asc = True
         self.sort_col = col[1:]  # strip leading '#'
         self.list_files()
 
