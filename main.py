@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from contextlib import contextmanager
 import subprocess
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -24,6 +25,26 @@ class ADBFileManager:
         self.detect_devices()
         self.create_widgets()
         self.list_files()
+
+    @contextmanager
+    def busy_cursor(self, widget):
+        # set busy cursor
+        widget.config(cursor="watch")
+        widget.update_idletasks()
+        try:
+            yield
+        finally:
+            # always reset cursor
+            widget.config(cursor="")
+            widget.update_idletasks()
+
+    def subprocess_run(self, cmd, stdout, stderr, text):
+        try:
+            with self.busy_cursor(self.root):
+                result = subprocess.run(cmd, stdout=stdout, stderr=stderr, text=text)
+                return result
+        except subprocess.CalledProcessError:
+            raise
 
     def adb_base(self):
         """Return base adb command with selected device option."""
