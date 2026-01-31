@@ -61,7 +61,7 @@ class ADBFileManager:
             if self.device_id:
                 cmd += ["-s", self.device_id]
             cmd += args
-            result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            result = self.subprocess_run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if result.returncode != 0:
                 self.error_var.set(result.stderr.strip())
                 print(result.stderr.strip())
@@ -73,7 +73,7 @@ class ADBFileManager:
     def detect_devices(self):
         """Populate self.devices and default device selection."""
         try:
-            res = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            res = self.subprocess_run(["adb", "devices"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if res.returncode != 0:
                 messagebox.showerror("ADB Error", res.stderr.strip())
                 self.root.destroy()
@@ -234,21 +234,21 @@ class ADBFileManager:
         if not selected:
             messagebox.showinfo("Download", "No file selected")
             return
-        
         name = str(self.file_list.item(selected[0])["values"][0])
         ftype = str(self.file_list.item(selected[0])["values"][1])
-        if ftype == "dir":
-            messagebox.showinfo("Download", "Cannot download a directory")
-            return
-            
         remote_path = os.path.join(self.current_path, name)
-        local_path = filedialog.asksaveasfilename(
-            initialfile=name,
-            title="Save As",
-            defaultextension=os.path.splitext(name)[1] or ""
-        )
-        if local_path:
-            self.download_file_dialog(remote_path, local_path)
+        if ftype == "dir":
+            local_path = filedialog.askdirectory()
+            if local_path:
+                self.download_dir_dialog(remote_path, local_path)
+        else:
+            local_path = filedialog.asksaveasfilename(
+                initialfile=name,
+                title="Save As",
+                defaultextension=os.path.splitext(name)[1] or ""
+            )
+            if local_path:
+                self.download_file_dialog(remote_path, local_path)
 
     def upload_file(self):
         """Prompt user to select a local file and upload it to the current path on the device."""
@@ -282,7 +282,7 @@ class ADBFileManager:
                 ]
             else:
                 cmd = self.adb_base() + ["shell", "rm", "-rf", f"'{remote_path}'"]
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            res = self.subprocess_run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if res.returncode != 0:
                 self.error_var.set(res.stderr.strip())
                 messagebox.showerror("Delete Error", self.error_var.get())
@@ -292,6 +292,38 @@ class ADBFileManager:
         except Exception as e:
             self.error_var.set(str(e))
             messagebox.showerror("Delete Error", str(e))
+
+    def download_dir_dialog(self, remote_path, local_path):
+        """Download a directory from the device to the given local path."""
+        self.error_var.set("")
+        try:
+            # Using adb pull is the most straightforward way. If run-as is required we'll try that first
+            run_as_val = self.run_as_var.get().strip()
+            if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
+                cmd = self.adb_base() + [
+                    "shell",
+                    "run-as",
+                    run_as_val,
+                    "cp",
+                    "-r",
+                    f"'{remote_path}'",
+                    f"'{local_path}'",
+                ]
+                res = self.subprocess_run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if res.returncode != 0:
+                    self.error_var.set(res.stderr.strip())
+                    messagebox.showerror("Download Error", self.error_var.get())
+                    return
+            else:
+                cmd = self.adb_base() + ["pull", remote_path, local_path]
+                res = self.subprocess_run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                if res.returncode != 0:
+                    self.error_var.set(res.stderr.strip())
+                    messagebox.showerror("Download Error", self.error_var.get())
+                    return
+        except Exception as e:
+            self.error_var.set(str(e))
+            messagebox.showerror("Download Error", str(e))
 
     def download_file_dialog(self, remote_path, local_path):
         """Download a single file from the device to the given local path."""
@@ -304,7 +336,7 @@ class ADBFileManager:
             if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
                 # Use exec-out to stream file contents
                 with open(local_path, "wb") as f:
-                    cat_result = subprocess.run(
+                    cat_result = self.subprocess_run(
                         self.adb_base() + [
                             "exec-out",
                             "run-as",
@@ -314,13 +346,14 @@ class ADBFileManager:
                         ],
                         stdout=f,
                         stderr=subprocess.PIPE,
+                        text=True,
                     )
                     if cat_result.returncode != 0:
                         self.error_var.set(cat_result.stderr.decode().strip())
                         messagebox.showerror("Download Error", self.error_var.get())
                         return
             else:
-                pull_result = subprocess.run(
+                pull_result = self.subprocess_run(
                     pull_cmd + ["pull", remote_path, local_path],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -343,7 +376,7 @@ class ADBFileManager:
             if run_as_val and remote_path.startswith(f"/data/data/{run_as_val}"):
                 # First push to /sdcard for easier permissions
                 temp_path = f"/sdcard/{os.path.basename(remote_path)}"
-                push_result = subprocess.run(
+                push_result = self.subprocess_run(
                     self.adb_base() + ["push", local_path, temp_path],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -354,7 +387,7 @@ class ADBFileManager:
                     messagebox.showerror("Upload to /sdcard Error", self.error_var.get())
                     return
                 # Then copy to /data using run-as
-                cp_result = subprocess.run(
+                cp_result = self.subprocess_run(
                     self.adb_base() + [
                         "shell",
                         "run-as",
@@ -372,7 +405,7 @@ class ADBFileManager:
                     messagebox.showerror("Copy to /data Error", self.error_var.get())
                     return
             else:
-                push_proc = subprocess.run(
+                push_proc = self.subprocess_run(
                     self.adb_base() + ["push", local_path, remote_path],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
