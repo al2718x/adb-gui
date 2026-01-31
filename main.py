@@ -119,10 +119,11 @@ class ADBFileManager:
         self.path_var.set(self.current_path)
         # Use persistent run-as if present
         run_as_val = self.run_as_var.get().strip()
+        # self.current_path may contain spaces
         if run_as_val and self.current_path.startswith("/data/data/"):
-            output = self.run_adb(["shell", "run-as", run_as_val, "ls", "-lah", self.current_path])
+            output = self.run_adb(["shell", "run-as", run_as_val, "ls", "-lah", f"'{self.current_path}'"])
         else:
-            output = self.run_adb(["shell", "ls", "-lah", self.current_path])
+            output = self.run_adb(["shell", "ls", "-lah", f"'{self.current_path}'"])
         if not output:
             return
         output = output.replace("                ?", " ????-??-?? ??:??")        
